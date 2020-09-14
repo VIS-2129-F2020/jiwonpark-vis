@@ -1,0 +1,84 @@
+---
+title: "Assignment_r1"
+author: "Jiwon Park"
+date: '2020 9 10 '
+output: html_document
+---
+
+```{r message=FALSE} 
+library(ggplot2)
+library(tidycensus)
+library(tidyverse)
+library(dplyr)
+```
+
+## Variables Used
+
+```{r}
+area_vars_2018 <- load_variables (2018, "acs5")
+```
+
+
+```{r message=FALSE}
+pop_vars <- c(tot_pop = "B01003_001",
+              tot_ten = "B07013_003", 
+              tot_pubtra = "B08006_008",
+              med_income = "B21004_001",
+              mon_hous = "B25104_001", 
+              usborn_pop = "B05001_002",
+              white_pop = "B02001_002")
+
+tractCA2018 <- get_acs(geography = "tract",
+                        variables = pop_vars,
+                        output = "wide",
+                        state = "CA",
+                        year = 2018,
+                        survey = "acs5")
+```
+
+
+```{r}
+tractCA2018 <- tractCA2018 %>%
+  
+  mutate(pct_ten = tot_tenE / tot_popE,
+         pct_pubtra = tot_pubtraE / tot_popE,
+         maj_usborn = usborn_popE / tot_popE > 0.5,
+         maj_white = white_popE / tot_popE > 0.5) %>% 
+  select(tot_popE, med_incomeE, mon_housE, pct_ten, pct_pubtra, maj_usborn, maj_white)
+            
+
+tractCA2018
+```
+
+
+```{r}
+ggplot(tractCA2018, 
+       aes(x = pct_ten,
+           y = med_incomeE,
+           size = pct_pubtra,
+           color = maj_white,
+           alpha = maj_usborn)) +
+  geom_point() +
+  scale_size_continuous(name = "Percentage of Using Public Transport to Work",
+                        breaks = seq(0, 1, by = 0.1),
+                        labels = paste(seq(0, 100, by = 10), "%", sep = "")) +
+  scale_x_continuous(name = "Percentage Tenant Population",
+                     breaks = seq(0, 1, by = 0.2),
+                     labels = paste(seq(0, 100, by = 20), "%", sep = "")) +
+  scale_y_continuous(name = "Median Income",
+                     breaks = seq(10000, 120000, by = 10000)) +
+  scale_color_discrete(name = "Majority White",
+                       labels = c("TRUE", "FALSE")) +
+  scale_alpha_discrete(name = "Majority US Born",labels = c("TRUE", "FALSE")) +
+  theme_bw() +
+  theme(legend.key.size = unit(0.1, "cm"))
+```
+
+
+
+
+
+
+
+
+
