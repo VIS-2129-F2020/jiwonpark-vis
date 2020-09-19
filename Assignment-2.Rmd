@@ -1,0 +1,165 @@
+---
+title: "Assignment-2"
+author: "Jiwon Park"
+date: '2020 9 19 '
+output: html_document
+
+---
+## Install Packages
+
+```{r message=FALSE}
+library(ggplot2)
+library(cowplot)
+library(googleway)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(tidyverse)
+library(ggspatial)
+library(ggrepel)
+library(viridis)
+library(rgeos)
+library(cartogram)
+library(ggthemes)
+library(devtools)
+library(usmap)
+```
+
+## World Map
+
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+world_map <- ggplot(data = world) +
+  geom_sf() +
+  xlab("Longitude") + ylab("Latitude") +
+  ggtitle("World map", subtitle = paste0 ("(", length(unique(world$name)), " countries)"))
+
+world_map
+```
+
+## Map of the States in the United States 
+
+```{r}
+US_states <- ne_states(country = "United States of America", 
+                       returnclass = "sf") %>%
+  filter(name != "Alaska",
+         name != "Hawaii")
+
+US_map <- ggplot(US_states) +
+  theme_set(theme_bw()) + 
+  geom_sf() +
+  xlab("Longitude") + ylab("Latitude") +
+  ggtitle("States in the United States") + 
+  annotation_scale()
+
+US_map
+```
+
+## Three different Map Projections
+
+
+### Lambert Azimuthal Equal Area Projection (LAEA)
+```{r}
+USA_LAEA <- "+proj=laea + lon_0=-70 + lat_0=30 + x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs "
+
+ggplot(US_states) +
+  theme_set(theme_bw()) + 
+  geom_sf() +
+  coord_sf(crs = USA_LAEA) 
+```
+
+### Transverse Mercator Projection (TMERC)
+```{r}
+USA_TMERC <- "+proj=tmerc + lat_0=20 +lon_0=-130 +k_0=1 +x_0=0 +y_0=0 +ellps=bessel + no_defs"
+
+ggplot(US_states) +
+  theme_set(theme_bw()) + 
+  geom_sf() +
+  coord_sf(crs = USA_TMERC) 
+```
+
+## Lambert Conformal Conic projection (LCC)
+```{r}
+USA_LCC <- "+proj=lcc +lon_0=-100 +lat_1=29.5 +lat_2=45.5"
+
+ggplot(US_states) +
+  theme_set(theme_bw()) + 
+  geom_sf() +
+  coord_sf(crs = USA_LCC) 
+```
+
+
+## Transforming Coordinate Systems
+
+```{r}
+states_transformed <- US_states %>%
+  st_transform(crs = USA_LCC)
+
+ggplot(states_transformed) +
+  theme_set(theme_bw()) + 
+  geom_sf() 
+```
+
+## Creating a Map
+
+```{r}
+poverty_us <- read_csv("state2018.csv")
+
+poverty_states <-states_transformed %>%
+  left_join(poverty_us, by = c("name" = "NAME")) %>%
+  select(name, tot_popE, rat_pov, med_incomeE, mon_housE)
+
+poverty_states
+```
+
+## Chloropleth map
+
+```{r}
+ggplot(poverty_states, aes(fill = rat_pov)) +
+  geom_sf(color = NA) +
+  scale_fill_viridis_c(
+    name = "Ratio of\nPopulation Under\nPoverty Rate\nin 2018",
+    breaks = seq(0, 0.1, by = 0.005),
+    labels = paste(seq(0, 10, by = 0.5), "%", sep = "")) +
+    
+  theme_map() +
+  theme(legend.background = element_blank())
+```
+
+
+### Cartograms
+
+```{r}
+poverty_cartogram_cont <- poverty_states %>%
+  cartogram_cont("med_incomeE")
+
+ggplot(poverty_cartogram_cont, aes(fill = rat_pov)) +
+  geom_sf(color = "gray") +
+  scale_fill_viridis_c(
+    name = "Ratio of\nPopulation Under\nPoverty Rate\nin 2018",
+    breaks = seq(0, 0.1, by = 0.005),
+    labels = paste(seq(0, 10, by = 0.5), "%", sep = "")) +
+  theme_map() +
+  theme(legend.background = element_blank())
+```
+
+### Proportional symbol map
+```{r}
+poverty_centroids <- poverty_states %>%
+  st_centroid()
+
+ggplot(states_transformed) +
+  theme_set(theme_void()) +
+  geom_sf(fill = NA, color = "gray") +
+  geom_sf(data = poverty_centroids, 
+          aes(size = rat_pov),
+          alpha = 0.5, color = "purple") +
+  
+  scale_size_continuous(name = "Ratio of\nPopulation Under\nPoverty Rate\nin 2018",
+    breaks = seq(0, 0.1, by = 0.01),
+    labels = paste(seq(0, 10, by = 1), "%", sep = ""),
+    range = c(0, 15)) 
+```
+
+
