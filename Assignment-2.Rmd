@@ -2,8 +2,12 @@
 title: "Assignment-2"
 author: "Jiwon Park"
 date: '2020 9 19 '
-output: html_document
-
+output: 
+  html_document:
+    theme : cosmo
+    toc : true
+    toc_depth : 4
+    toc_float : true 
 ---
 ## Install Packages
 
@@ -28,14 +32,17 @@ library(usmap)
 ## World Map
 
 ```{r}
-world <- ne_countries(scale = "medium", returnclass = "sf")
+world_map <- ne_countries(scale=50, returnclass="sf")
+world_map_02 <- ggplot(world_map) +
+  geom_sf(aes(fill = region_wb)) +
+  theme_foundation() + 
+  geom_rect(xmin = -130, xmax = -68.01197, ymin = 30, ymax = 50, 
+     fill = NA, colour = "red", size = 0.7) +
+  scale_fill_viridis_d(option = "plasma", name = "REGION") +
+  theme(panel.background = element_rect(fill = "aliceblue"),
+     panel.border = element_rect(fill = NA))
 
-world_map <- ggplot(data = world) +
-  geom_sf() +
-  xlab("Longitude") + ylab("Latitude") +
-  ggtitle("World map", subtitle = paste0 ("(", length(unique(world$name)), " countries)"))
-
-world_map
+world_map_02
 ```
 
 ## Map of the States in the United States 
@@ -47,10 +54,11 @@ US_states <- ne_states(country = "United States of America",
          name != "Hawaii")
 
 US_map <- ggplot(US_states) +
-  theme_set(theme_bw()) + 
   geom_sf() +
+  theme_wsj() + 
   xlab("Longitude") + ylab("Latitude") +
   ggtitle("States in the United States") + 
+  theme(plot.title = element_text(size = 20, face = "bold")) +
   annotation_scale()
 
 US_map
@@ -59,36 +67,35 @@ US_map
 ## Three different Map Projections
 
 
-### Lambert Azimuthal Equal Area Projection (LAEA)
+### 1. Lambert Azimuthal Equal Area Projection (LAEA)
 ```{r}
 USA_LAEA <- "+proj=laea + lon_0=-70 + lat_0=30 + x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs "
 
 ggplot(US_states) +
-  theme_set(theme_bw()) + 
   geom_sf() +
+  theme_wsj() + 
   coord_sf(crs = USA_LAEA) 
 ```
 
-### Transverse Mercator Projection (TMERC)
+### 2. Transverse Mercator Projection (TMERC)
 ```{r}
 USA_TMERC <- "+proj=tmerc + lat_0=20 +lon_0=-130 +k_0=1 +x_0=0 +y_0=0 +ellps=bessel + no_defs"
 
 ggplot(US_states) +
-  theme_set(theme_bw()) + 
   geom_sf() +
+  theme_wsj() + 
   coord_sf(crs = USA_TMERC) 
 ```
 
-## Lambert Conformal Conic projection (LCC)
+### 3. Lambert Conformal Conic projection (LCC)
 ```{r}
 USA_LCC <- "+proj=lcc +lon_0=-100 +lat_1=29.5 +lat_2=45.5"
 
 ggplot(US_states) +
-  theme_set(theme_bw()) + 
   geom_sf() +
+  theme_wsj() + 
   coord_sf(crs = USA_LCC) 
 ```
-
 
 ## Transforming Coordinate Systems
 
@@ -97,69 +104,112 @@ states_transformed <- US_states %>%
   st_transform(crs = USA_LCC)
 
 ggplot(states_transformed) +
-  theme_set(theme_bw()) + 
-  geom_sf() 
+  geom_sf() + 
+  theme_set(theme_bw())
 ```
 
 ## Creating a Map
 
-```{r}
+I created a csv file with the following variables at the state-level : 
+
+1. Total population : tot_pop
+2. Ratio of population under the poverty level : rat_pov
+3. Median Income : med_income
+
+```{r message = FALSE}
 poverty_us <- read_csv("state2018.csv")
 
 poverty_states <-states_transformed %>%
   left_join(poverty_us, by = c("name" = "NAME")) %>%
-  select(name, tot_popE, rat_pov, med_incomeE, mon_housE)
+  select(name, tot_popE, rat_pov, med_incomeE, postal)
 
-poverty_states
+poverty_states <- cbind(poverty_states,
+st_coordinates(st_centroid(
+poverty_states$geometry)))
 ```
 
-## Chloropleth map
+### 1. Choropleth map
 
-```{r}
+```{r message = FALSE}
 ggplot(poverty_states, aes(fill = rat_pov)) +
   geom_sf(color = NA) +
   scale_fill_viridis_c(
-    name = "Ratio of\nPopulation Under\nPoverty Rate\nin 2018",
+    name = "Ratio of\nPopulation Under\nPoverty Rate",
     breaks = seq(0, 0.1, by = 0.005),
-    labels = paste(seq(0, 10, by = 0.5), "%", sep = "")) +
-    
+    labels = paste(seq(0, 10, by = 0.5), "%", sep = "")) + 
+  geom_text(aes(label = postal, x = X, y = Y), 
+            color = "white", 
+            size = 2.5,
+            check_overlap = TRUE) +
+
   theme_map() +
-  theme(legend.background = element_blank())
+  theme(legend.background = element_blank(),
+        legend.direction = "vertical", 
+        legend.position = "left")
 ```
 
+According to this map, Mississippi seems to have the highest ratio of population under the poverty rate. Following states are New Mexico, West Virginia, Louisiana, Kentucky, Arkansas, and Alabama. 
 
-### Cartograms
+### 2. Cartograms
 
-```{r}
+```{r message = FALSE}
 poverty_cartogram_cont <- poverty_states %>%
   cartogram_cont("med_incomeE")
 
 ggplot(poverty_cartogram_cont, aes(fill = rat_pov)) +
   geom_sf(color = "gray") +
   scale_fill_viridis_c(
-    name = "Ratio of\nPopulation Under\nPoverty Rate\nin 2018",
+    name = "Ratio of\nPopulation Under\nPoverty Rate",
     breaks = seq(0, 0.1, by = 0.005),
     labels = paste(seq(0, 10, by = 0.5), "%", sep = "")) +
   theme_map() +
-  theme(legend.background = element_blank())
+  theme(legend.background = element_blank(),
+        legend.direction = "vertical", 
+        legend.position = "left") + 
+  labs(title= "Ratio of Population Under Poverty Rate",
+       subtitle = "State Sizes Distorted by Median Income") 
 ```
 
-### Proportional symbol map
+I distorted the sizes of each state by their median income. This is to see through this map whether there is a relationship between the median income and the ratio of population under the poverty rate. If that has a negative relationship, the size of states mentioned above such as Mississippi, New Mexico, West Virginia should shrink. As a result, new Mexico shrunk quite a lot, but the changes were not so significant in others. Meanwhile, the notable size changes happened in the states in the east coast.
+
+### 3. Non-continuous Cartograms
+
 ```{r}
+poverty_cartogram_cont <- poverty_states %>%
+  cartogram_ncont("tot_popE")
+
+ggplot(poverty_cartogram_cont, aes(fill = rat_pov)) +
+  geom_sf(color = "gray") +
+  scale_fill_viridis_c(
+    name = "Ratio of\nPopulation Under\nPoverty Rate",
+    breaks = seq(0, 0.1, by = 0.005),
+    labels = paste(seq(0, 10, by = 0.5), "%", sep = "")) +
+  theme_map() +
+  theme(legend.background = element_blank(),
+        legend.direction = "vertical", 
+        legend.position = "left") + 
+  labs(title= "Ratio of Population Under Poverty Rate",
+       subtitle = "State Sizes Distorted by Total Population") 
+```
+
+I distorted the sizes of each state by their total population. This was basically to visualize the general relationship between the total population and the ratio of population under poverty rate. 
+
+### 4. Proportional symbol map
+```{r message = FALSE}
 poverty_centroids <- poverty_states %>%
   st_centroid()
 
 ggplot(states_transformed) +
-  theme_set(theme_void()) +
+  theme_set(theme_economist()) +
   geom_sf(fill = NA, color = "gray") +
   geom_sf(data = poverty_centroids, 
-          aes(size = rat_pov),
-          alpha = 0.5, color = "purple") +
+          aes(size = med_incomeE, color = rat_pov)) +
   
-  scale_size_continuous(name = "Ratio of\nPopulation Under\nPoverty Rate\nin 2018",
+  scale_color_continuous(name = "Ratio of Population\nUnder Poverty Rate",
     breaks = seq(0, 0.1, by = 0.01),
-    labels = paste(seq(0, 10, by = 1), "%", sep = ""),
-    range = c(0, 15)) 
+    labels = paste(seq(0, 10, by = 1), "%", sep = "")) +
+  
+  scale_size_continuous(name = "Median Income")
 ```
 
-
+This is a different way of visualization with exactly the same data of the cartogram above (which integrated the poverty rate and median income).
