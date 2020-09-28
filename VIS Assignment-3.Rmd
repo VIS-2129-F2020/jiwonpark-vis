@@ -76,7 +76,7 @@ ggplot(com_district) +
 ```
 
 
-## 1. A number and proportion of subway stations (point) within a certian distance of free-wifi zone (point)
+## 1. A number and proportion of subway stations (point) within a certian distance of free-wifi location (point)
 
 
 ### Creating a buffer around free wifi-zone (40m)
@@ -100,14 +100,14 @@ ggplot(sub_station_wifi) +
   theme_map()
 ```
 
-### Join two dataframes
+### Joining two dataframes
 ```{r}
 sub_station <- sub_station %>%
   st_join(sub_station_wifi) %>%
   mutate(by_wifi = !is.na(Name.y))
 ```
 
-### Calculate the number of subway station within 40 meters of freewifi locations
+### Calculating the number of subway station within 40 meters of freewifi locations
 ```{r}
 n_sub_station_wifi <- sum(sub_station$by_wifi)
 
@@ -121,7 +121,7 @@ pct_sub_station_wifi <- n_sub_station_wifi/n_sub_station
 pct_sub_station_wifi
 ```
 
-About 59% of all subway stations in NYC are within 40 meters of freewifi locations.
+About 59% of all subway stations in NYC are within 40 meters of free-wifi locations.
 
 ### Creating a Map 
 ```{r}
@@ -155,7 +155,7 @@ ggplot(com_district) +
   
 ```
 
-## 2. Average Distance between the subway stations (point) and free-wifi zone (point)
+## 2. Average Distance between the subway stations (point) and free-wifi location (point)
 
 ```{r}
 sub_station <- sub_station %>%
@@ -181,7 +181,8 @@ ggplot(com_district) +
           aes(color = sub_station_dist)) + 
   coord_sf(xlim = c(left_side, right_side),
            ylim = c(bottom_side, top_side), expand = FALSE) + 
-  scale_color_viridis_c(name = "NYC Subway Stations\nby distance to Free-Wifi",
+  scale_color_viridis_c(option = "plasma", 
+                        name = "NYC Subway Stations\nby distance to Free-Wifi Location",
                         breaks = breaks <- seq(0, 1500, by = 500),
                         labels = paste(prettyNum(breaks, big.mark = ","), "meters from free-wifi")) + 
   annotation_scale(location = "br") + 
@@ -191,7 +192,7 @@ ggplot(com_district) +
            y = top_side - 3500,
            label = paste("On average, a NYC Subway Station \n is ", 
                          prettyNum(avg_sub_dist, digits = 3),
-                         " meters from a Free Wifi.",
+                         " meters from a Free-Wifi Location.",
                          sep = ""),
            hjust = 0, vjust = 0, size =3) +
 
@@ -201,10 +202,10 @@ ggplot(com_district) +
                                          color = "gray"))
 ```
 
-## 3. A number and proportion of Free-Wifi zones (point) in each community districts (polygon) in NYC
+## 3. The number and proportion of Free-Wifi locations (point) in each community district (polygon) in NYC
 
 
-### Number of Free-Wifi zones in each community districts
+### Number of Free-Wifi locations in each community district
 ```{r}
 com_district <- com_district %>%
   mutate(num_wifi = lengths(st_covers(com_district, free_wifi))) 
@@ -212,7 +213,7 @@ com_district <- com_district %>%
 ggplot(com_district) + 
   geom_sf(color = NA, 
           aes(fill = num_wifi)) + 
-  scale_fill_viridis_c(name = "NYC community districts\nby number of free-wifi zones",
+  scale_fill_viridis_c(name = "NYC community districts\nby number of free-wifi locations",
                        breaks = breaks <- seq(0, 250, by = 50),
                        labels = paste(prettyNum(breaks), "Zones")) + 
   annotation_scale(location = "br") + 
@@ -223,16 +224,21 @@ ggplot(com_district) +
                                          color = "gray"))
 ```
 
-### Proportion of Free-Wifi zones in each community districts
+### Proportions of Free-Wifi locations in each community district
+
+I just want to additionally visualize the proportions of wifi locations in each community district to the whole wifi locations in NYC. 
+
 ```{r}
 com_district <- com_district %>%
   mutate(num_wifi = lengths(st_covers(com_district, free_wifi))) %>%
-  mutate(pct_wifi = num_wifi / free_wifi)
+  mutate(pct_wifi = num_wifi / nrow(free_wifi))
 
 ggplot(com_district) + 
   geom_sf(color = NA, 
           aes(fill = pct_wifi)) + 
-  scale_fill_viridis_c(name = "NYC community districts\nby the percentage of free-wifi zones") + 
+  scale_fill_viridis_c(name = "NYC community districts\nby the percentage of free-wifi zones",
+                       breaks = breaks <- seq(0, 0.1, by = 0.02),
+                       labels = paste(prettyNum(breaks*100), "%")) + 
   annotation_scale(location = "br") + 
   annotation_north_arrow(location = "tr",
                          style = north_arrow_minimal()) + 
@@ -241,14 +247,15 @@ ggplot(com_district) +
                                          color = "gray"))
 ```
 
-## 4. Calculating Average Density of Free-Wifi zones within each Community Districts
+It is possible to know that in the place with the highest number of free-wifi zones - in this case, the midtown in Manhattan - more than 6% of free-wifi zones out of the whole zones are located in the Midtown.
 
 
-### Creating a Map
+## 4. Average Density of Free-Wifi Locations (point) within each Community Districts (polygon)
+
 ```{r}
 com_district <- com_district %>%
   mutate(area = set_units(st_area(com_district), km^2)) %>%
-  mutate(wifi_dens = as.numeric(num_wifi / area)) %>%
+  mutate(wifi_dens = as.numeric(num_wifi / area)) 
 
 ggplot(com_district) + 
   geom_sf(color = NA, 
@@ -272,7 +279,7 @@ ggplot(com_district) +
 ```{r}
 com_district <- com_district %>%
   mutate(num_open_space = lengths(st_overlaps(com_district, open_space))) %>%
-  mutate(has_open_space = num_open_space > 0) %>%
+  mutate(has_open_space = num_open_space > 0) 
 ```
 
 ```{r}
@@ -307,12 +314,12 @@ ggplot(com_district) +
                          "an openspace."),
            hjust = 0, vjust = 0, size = 3) +
   theme_map() +
-  theme(panel.background = element_rect(fill = "gray"),
+  theme(panel.background = element_rect(fill = "aliceblue"),
         legend.background = element_rect(fill = alpha("white", 0.5), 
                                          color = "gray"))
 ```
 
-### Map on the number and proportion of openspaces in each community districts
+### Map on the number and proportion of openspaces in each community district
 
 ```{r}
 left_side <- st_bbox(open_space)$xmin
@@ -322,7 +329,10 @@ ggplot(open_space) +
   geom_sf(color = NA) + 
   geom_sf(data = com_district, 
           aes(fill = num_open_space)) + 
- scale_fill_viridis_b(name = "NYC Community Districts \nby the Area of Openspace") + 
+ scale_fill_viridis_c(option = "plasma", 
+                      name = "NYC Community Districts \nby the Area of Openspace",
+                      breaks = breaks <- seq(0, 50, by = 10),
+                      labels = paste(prettyNum(breaks), "openspaces")) + 
   annotation_scale(location = "br") + 
   annotation_north_arrow(location = "tr",
                          style = north_arrow_minimal()) +
@@ -340,7 +350,9 @@ com_district <- com_district %>%
 ggplot(com_district) + 
   geom_sf(color = NA, 
           aes(fill = num_sub_station)) + 
-  scale_fill_viridis_c(name = "NYC community districts\nby number of Subway Stations") + 
+  scale_fill_viridis_c(name = "NYC community districts\nby number of subway stations",
+                       breaks = breaks <- seq(0, 50, by = 10),
+                       labels = paste(prettyNum(breaks), "subway stations")) + 
   annotation_scale(location = "br") + 
   annotation_north_arrow(location = "tr",
                          style = north_arrow_minimal()) + 
@@ -349,7 +361,7 @@ ggplot(com_district) +
                                          color = "gray"))
 ```
 
-## 7. The Density of subway stations (points) in each district (polygon) in NYC
+## 7.  Average Density of subway stations (points) in each district (polygon) in NYC
 
 ```{r}
 com_district <- com_district %>%
@@ -359,7 +371,9 @@ com_district <- com_district %>%
 ggplot(com_district) + 
   geom_sf(color = NA, 
           aes(fill = sub_station_dens)) + 
-  scale_fill_viridis_c(name = "NYC community districts\nby the Density of Subway Stations") + 
+  scale_fill_viridis_c(name = "NYC community districts\nby the density of subway stations",
+                       breaks = breaks <- seq(0, 10, by = 2),
+                       labels = paste(prettyNum(breaks), "subway stations per square km")) + 
   annotation_scale(location = "br") + 
   annotation_north_arrow(location = "tr",
                          style = north_arrow_minimal()) + 
