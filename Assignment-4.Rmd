@@ -3,6 +3,9 @@ title: "Assignment-4"
 author: "Jiwon Park"
 date: '2020 10 6 '
 output:
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
   html_document:
     theme: cosmo
     toc: yes
@@ -10,7 +13,11 @@ output:
     toc_float: yes
 ---
 
-## Load packages
+## General approach to the assignment
+
+Through this assignment, I want to see the 5-mins walkshed and the bikeshed of the polling locations in South Boston. I will create 5-mins isochrones for each transportation mode, and I will calculate and compare them. I will also calculate the number of trees in each walkshed of the polling locations in South Boston and visualize it. I'm a strong believer that fresh air makes a significant impact on a person's smart decision! 
+
+
 ```{r message = FALSE}
 library(dplyr)
 library(knitr)
@@ -23,26 +30,25 @@ library(ggspatial)
 library(splitstackshape)
 ```
 
-## Coordinate Projection System 
 ```{r}
 MA_state_plane <- "+proj=lcc +lat_1=41.71666666666667 +lat_2=42.68333333333333 +lat_0=41 +lon_0=-71.5 +x_0=200000 +y_0=750000 +ellps=GRS80 +units=m +no_defs"
 ```
 
 ## Downloading polling location data in Boston
-```{r}
+```{r message = FALSE, results = 'hide'}
 poll_location <- st_read(
   "http://bostonopendata-boston.opendata.arcgis.com/datasets/f7c6dc9eb6b14463a3dd87451beba13f_5.kml?outSR=%7B%22latestWkid%22%3A2249%2C%22wkid%22%3A102686%7D")
 ```
 
 ## Downloading Boston neighborhood data 
-```{r}
+```{r message = FALSE, results = 'hide'}
 boston_nhood <- st_read("http://bostonopendata-boston.opendata.arcgis.com/datasets/3525b0ee6e6b427f9aab5d0a1d0a1a28_0.kml?outSR=%7B%22latestWkid%22%3A2249%2C%22wkid%22%3A102686%7D") %>%
   filter(Name == "South Boston")
 ```
 
 ## Filtering polling locations in South Boston
-```{r}
-south_boston_polls <- poll_location[boston_nhood = "South Boston", ]
+```{r message = FALSE, results = 'hide'}
+south_boston_polls <- poll_location[boston_nhood, ]
 ```
 
 ## Get street data - South Boston
@@ -68,7 +74,7 @@ ggplot(south_boston_streets) +
 ```
 
 ## Setting up Open Trip Planner
-```{r}
+```{r message = FALSE, results = 'hide'}
 path_data <- file.path(getwd(), "OTP")
 path_otp <- paste(path_data, "otp.jar",sep = "/")
 
@@ -84,13 +90,16 @@ otpcon <- otp_connect()
 ```
 
 ## Filtering polling locations in South Boston
-```{r}
+```{r message = FALSE, results = 'hide'}
 south_boston_polls <- poll_location[boston_nhood, ] %>%
   st_transform(src = MA_state_plane)
 ```
 
 
 ## Creating isochrones
+
+I'm going to create 5-mins isochrones for walking and bicycling.
+
 ```{r}
 iso_5min_walk <- 
   otp_isochrone(otpcon = otpcon, fromPlace = south_boston_polls, 
@@ -149,76 +158,6 @@ ggplot(iso_all_modes) +
   labs(caption = "Basemap Copyright OpenStreetMap contributors")
 ```
 
-## Counting the number of trees within 5-min walk from polling locations in South Boston
-
-```{r}
-tree <- st_read("http://bostonopendata-boston.opendata.arcgis.com/datasets/ce863d38db284efe83555caf8a832e2a_1.kml", quiet = TRUE) %>%
-    st_transform(MA_state_plane) 
-```
-
-```{r}
-south_boston_tree <- tree[boston_nhood = "South Boston", ]
-```
-
-```{r}
-tree_poll_walk <- south_boston_tree [iso_5min_walk, ]
-
-ggplot(tree_poll_walk) +
-  geom_sf(data = iso_5min_walk, fill = "royalblue3", alpha = 0.5, color = NA) + 
-  geom_sf(data = tree_poll_walk , color = "darkgreen",size = 0.3) +
-  theme_map()
-```
-
-```{r}
-south_boston_tree <- south_boston_tree %>%
-  st_join(tree_poll_walk) %>%
-  mutate(tree_by_walk = !is.na(Name.y))
-```
-
-
-```{r}
-n_tree_by_walk <- sum(south_boston_tree$tree_by_walk)
-
-n_tree_by_walk
-```
-
-
-```{r}
-n_south_boston_tree <- length(south_boston_tree$tree_by_walk)
-pct_tree_by_walk <- n_tree_by_walk/n_south_boston_tree
-pct_tree_by_walk
-```
-
-```{r}
-left_side <- st_bbox(south_boston_tree)$xmin
-top_side <- st_bbox(south_boston_tree)$ymax
-
-ggplot(south_boston_tree) +
-  geom_sf(fill = "lightgray", color = "darkgray") +
-  geom_sf(data = south_boston_tree, size = 0.3,
-          aes(color = tree_by_walk)) +
-  scale_color_manual(values = c("firebrick3", "darkgreen"),
-                    name = "South Boston Trees \nby a distance to poll locations",
-                    labels = c("No Tree within 5-min walk",
-                               "Tree within 5-min walk")) +
-  annotation_scale(location = "br") +
-  annotation_north_arrow(location = "tr", 
-                         style = north_arrow_minimal()) +
-  annotate(geom = "text", x = right_side, y = bottom_side+200,
-           label = paste("Of the ", 
-                      prettyNum(n_south_boston_tree, big.mark = ","),
-                       " trees in South Boston,\n", 
-                       prettyNum(n_tree_by_walk, big.mark = ","),
-                       " (", 
-                       prettyNum(100*pct_tree_by_walk, digits = 0),
-                       "%) are within \n5-mins walk from polling locations",
-                       sep = ""), size = 3) +
-  theme_map() +
-  theme(panel.background = element_rect(fill = "aliceblue"),
-        legend.background = element_rect(fill = alpha("white", 0.5), 
-                                         color = "gray"))
-```
-
 ## Calcuate and compare isochrone areas
 
 ```{r}
@@ -251,5 +190,81 @@ ggplot(iso_areas,
             breaks = breaks <- seq(0, 700000, by = 100000),
             labels = breaks / 1000000) +
   theme_bw()
+```
+
+## Counting the number of trees within 5-min walk from polling locations in South Boston
+
+```{r}
+tree <- st_read("http://bostonopendata-boston.opendata.arcgis.com/datasets/ce863d38db284efe83555caf8a832e2a_1.kml", quiet = TRUE) 
+```
+
+```{r}
+south_boston_tree <- tree[boston_nhood, ] 
+
+ggplot(boston_nhood) +
+  geom_sf() + 
+  geom_sf(data = south_boston_tree)
+
+south_boston_tree <- south_boston_tree %>%
+  st_transform(MA_state_plane)
+```
+
+```{r}
+tree_poll_walk <- south_boston_tree [iso_5min_walk, ]
+
+ggplot(tree_poll_walk) +
+  geom_sf(data = iso_5min_walk, fill = "royalblue3", alpha = 0.5, color = NA) + 
+  geom_sf(data = tree_poll_walk , color = "darkgreen",size = 0.3) +
+  theme_map()
+```
+
+```{r}
+south_boston_tree <- south_boston_tree %>%
+  st_join(tree_poll_walk) %>%
+  mutate(by_tree = !is.na(Name.y))
+```
+
+
+```{r}
+n_tree_by_walk <- sum(south_boston_tree$by_tree)
+
+n_tree_by_walk
+```
+
+
+```{r}
+n_south_boston_tree <- length(south_boston_tree$by_tree)
+pct_tree_by_walk <- n_tree_by_walk/n_south_boston_tree
+pct_tree_by_walk
+```
+
+```{r}
+left_side <- st_bbox(south_boston_tree)$xmin
+top_side <- st_bbox(south_boston_tree)$ymax
+
+ggplot(south_boston_tree) +
+  geom_sf(fill = "lightgray", color = "darkgray") +
+  geom_sf(data = south_boston_tree, size = 0.3,
+          aes(color = by_tree)) +
+  scale_color_manual(values = c("firebrick3", "darkgreen"),
+                    name = "South Boston Trees \nby a distance to poll locations",
+                    labels = c("No Tree within 5-min walk",
+                               "Tree within 5-min walk")) +
+  annotation_scale(location = "br") +
+  annotation_north_arrow(location = "tr", 
+                         style = north_arrow_minimal()) +
+  annotate(geom = "text", x = right_side, y = bottom_side+200,
+           label = paste("Of the ", 
+                      prettyNum(n_south_boston_tree, big.mark = ","),
+                       " trees in South Boston,\n", 
+                       prettyNum(n_tree_by_walk, big.mark = ","),
+                       " (", 
+                       prettyNum(100*pct_tree_by_walk, digits = 0),
+                       "%) are within \n5-mins walk from polling locations",
+                       sep = ""), size = 3) +
+  theme_map() +
+  theme(panel.background = element_rect(fill = "aliceblue"),
+        legend.background = element_rect(fill = alpha("white", 0.5), 
+                                         color = "gray"))
 ```
 
