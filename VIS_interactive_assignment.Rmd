@@ -111,8 +111,8 @@ map1
 
 ```
 
-
 ```{r}
 saveWidget(map1, file = "map1.html")
 ```
+
 
