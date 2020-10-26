@@ -57,15 +57,15 @@ med_home_value <- get_acs(geography = "tract",
 ```{r}
   landmark_boston_addr$describe2 <- 
   paste("Name :", landmark_boston_addr$Name_of_Pr, "<br>") %>%
-  paste(landmark_boston_addr$URL, "<br>") %>%
-  paste(landmark_boston_addr$Date_Desig) %>%
+  paste("Date of Designation :" ,
+        case_when(landmark_boston_addr$Date_Desig == " " ~ "NA",
+                  TRUE ~ landmark_boston_addr$Date_Desig)) %>%
   lapply(htmltools::HTML)
 ```
 
 
 ```{r}
-map1 <- map1 %>%
-  colorNumeric(palette = "viridis", 
+map1 <- colorNumeric(palette = "viridis", 
                     domain = med_home_value$estimate) 
 
 my_icons <- makeIcon(iconUrl = "https://image.flaticon.com/icons/png/512/1823/1823644.png",
@@ -112,7 +112,7 @@ map1
 ```
 
 ```{r}
-saveWidget(map1, file = "map1.html")
+saveWidget(map1[3][[1]], file = "map1.html")
 ```
 
 
